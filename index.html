@@ -6,18 +6,84 @@
     <title>Expense Tracker - Bhavish & Khushboo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>"
-    />
+    <style>
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+        .notification-enter {
+            animation: slideIn 0.3s ease-out;
+        }
+        .notification-exit {
+            animation: slideOut 0.3s ease-in;
+        }
+    </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen pb-6">
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
     <div class="max-w-2xl mx-auto px-4 py-6">
         <!-- Header -->
         <div class="text-center mb-6">
             <h1 class="text-3xl font-bold text-slate-800 mb-1">💰 Expense Tracker</h1>
             <p class="text-sm text-slate-600">Bhavish & Khushboo</p>
         </div>
+
+        <!-- Budget Settings Button -->
+        <div class="mb-4">
+            <button onclick="window.toggleBudgetSettings()" class="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                ⚙️ Budget Settings
+            </button>
+        </div>
+
+        <!-- Budget Settings Panel -->
+        <div id="budgetPanel" class="bg-white rounded-xl shadow-md p-5 border border-slate-200 mb-6" style="display: none;">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">📊 Monthly Budget Limits</h2>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Set limits for:</label>
+                <select id="budgetPerson" onchange="window.renderBudgetInputs()" class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500">
+                    <option value="Bhavish">Bhavish</option>
+                    <option value="Khushboo">Khushboo</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-2">💰 Total Monthly Budget</label>
+                <input 
+                    type="number" 
+                    id="totalBudget" 
+                    placeholder="Set overall budget limit"
+                    class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
+                >
+            </div>
+
+            <div class="space-y-3" id="budgetInputs"></div>
+            
+            <button onclick="window.saveBudgets()" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm mt-4">
+                Save Budgets
+            </button>
+        </div>
+
+        <!-- Budget Warnings -->
+        <div id="budgetWarnings" class="mb-6"></div>
 
         <!-- Add Expense Form -->
         <div class="bg-white rounded-xl shadow-md p-5 border border-slate-200 mb-6">
@@ -64,7 +130,7 @@
                     </div>
                 </div>
 
-                <button onclick="addExpense()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm">
+                <button onclick="window.addExpense()" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition-colors text-sm">
                     Add Expense
                 </button>
             </div>
@@ -81,9 +147,9 @@
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-bold text-slate-800">📊 Analytics</h2>
                 <div class="flex gap-1 bg-slate-100 rounded-lg p-1">
-                    <button onclick="setTimeFilter('Week')" id="filterWeek" class="px-3 py-1 rounded-md text-xs font-medium transition-colors text-slate-600 hover:text-slate-800">Week</button>
-                    <button onclick="setTimeFilter('Month')" id="filterMonth" class="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-blue-500 text-white">Month</button>
-                    <button onclick="setTimeFilter('Year')" id="filterYear" class="px-3 py-1 rounded-md text-xs font-medium transition-colors text-slate-600 hover:text-slate-800">Year</button>
+                    <button onclick="window.setTimeFilter('Week')" id="filterWeek" class="px-3 py-1 rounded-md text-xs font-medium transition-colors text-slate-600 hover:text-slate-800">Week</button>
+                    <button onclick="window.setTimeFilter('Month')" id="filterMonth" class="px-3 py-1 rounded-md text-xs font-medium transition-colors bg-blue-500 text-white">Month</button>
+                    <button onclick="window.setTimeFilter('Year')" id="filterYear" class="px-3 py-1 rounded-md text-xs font-medium transition-colors text-slate-600 hover:text-slate-800">Year</button>
                 </div>
             </div>
             <p class="text-xs text-slate-500" id="filterDescription">Showing expenses for: Current month</p>
@@ -138,214 +204,549 @@
             <h3 class="text-base font-bold text-slate-800 mb-3">🎯 Top Categories</h3>
             <div id="topCategoriesList"></div>
         </div>
+
+        <!-- Category Budget Status -->
+        <div class="bg-white rounded-xl shadow-md p-5 border border-slate-200 mb-6" id="categoryBudgetCard" style="display: none;">
+            <h3 class="text-base font-bold text-slate-800 mb-3">📊 Budget Status by Category</h3>
+            <div id="categoryBudgetList"></div>
+        </div>
     </div>
 
     <script>
-        const SUPABASE_URL = 'https://epjulkezgiofkrdhvfqr.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwanVsa2V6Z2lvZmtyZGh2ZnFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2MjQzOTQsImV4cCI6MjA4MTIwMDM5NH0.DuIxOGe7uzVi04VkRd4bftcyC8QyiEoluCXyYvS05C4';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        (function() {
+            const SUPABASE_URL = 'https://epjulkezgiofkrdhvfqr.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVwanVsa2V6Z2lvZmtyZGh2ZnFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2MjQzOTQsImV4cCI6MjA4MTIwMDM5NH0.DuIxOGe7uzVi04VkRd4bftcyC8QyiEoluCXyYvS05C4';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        let expenses = [];
-        let timeFilter = 'Month';
-
-        const categoryColors = {
-            'Food': 'bg-orange-100 text-orange-700',
-            'Transport': 'bg-blue-100 text-blue-700',
-            'Shopping': 'bg-purple-100 text-purple-700',
-            'Bills': 'bg-red-100 text-red-700',
-            'Entertainment': 'bg-pink-100 text-pink-700',
-            'Health': 'bg-green-100 text-green-700',
-            'Other': 'bg-gray-100 text-gray-700'
-        };
-
-        // Set today's date as default
-        document.getElementById('date').valueAsDate = new Date();
-
-        // Load expenses on page load
-        loadExpenses();
-
-        // Set up real-time subscription
-        supabase
-            .channel('expenses-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => {
-                loadExpenses();
-            })
-            .subscribe();
-
-        async function loadExpenses() {
-            try {
-                const { data, error } = await supabase
-                    .from('expenses')
-                    .select('*')
-                    .order('date', { ascending: false });
-
-                if (error) throw error;
-                expenses = data || [];
-                renderExpenses();
-                updateAnalytics();
-            } catch (error) {
-                console.error('Error loading expenses:', error);
-            }
-        }
-
-        async function addExpense() {
-            const date = document.getElementById('date').value;
-            const place = document.getElementById('place').value;
-            const amount = document.getElementById('amount').value;
-            const category = document.getElementById('category').value;
-            const paidBy = document.getElementById('paidBy').value;
-
-            if (!place || !amount) {
-                alert('Please fill in all required fields');
-                return;
-            }
-
-            try {
-                const { error } = await supabase
-                    .from('expenses')
-                    .insert([{
-                        date,
-                        place,
-                        amount: parseFloat(amount),
-                        category,
-                        paid_by: paidBy
-                    }]);
-
-                if (error) throw error;
-
-                // Clear form
-                document.getElementById('place').value = '';
-                document.getElementById('amount').value = '';
-                document.getElementById('date').valueAsDate = new Date();
-            } catch (error) {
-                console.error('Error adding expense:', error);
-                alert('Failed to add expense');
-            }
-        }
-
-        async function deleteExpense(id) {
-            if (!confirm('Delete this expense?')) return;
-
-            try {
-                const { error } = await supabase
-                    .from('expenses')
-                    .delete()
-                    .eq('id', id);
-
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error deleting expense:', error);
-                alert('Failed to delete expense');
-            }
-        }
-
-        function renderExpenses() {
-            const list = document.getElementById('expensesList');
-            
-            if (expenses.length === 0) {
-                list.innerHTML = `
-                    <div class="text-center py-8 text-slate-400">
-                        <div class="text-4xl mb-3">💸</div>
-                        <p class="text-sm">No expenses yet. Start tracking!</p>
-                    </div>
-                `;
-                return;
-            }
-
-            list.innerHTML = expenses.map(exp => `
-                <div class="p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors mb-3">
-                    <div class="flex items-start justify-between mb-2">
-                        <div class="flex-1">
-                            <p class="font-semibold text-slate-800 mb-1">${exp.place}</p>
-                            <div class="flex flex-wrap gap-2 mb-2">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-medium ${categoryColors[exp.category]}">${exp.category}</span>
-                                <span class="px-2 py-0.5 rounded-full text-xs font-medium ${exp.paid_by === 'Bhavish' ? 'bg-indigo-100 text-indigo-700' : 'bg-rose-100 text-rose-700'}">${exp.paid_by}</span>
-                            </div>
-                            <p class="text-xs text-slate-500">${exp.date}</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <p class="font-bold text-slate-800 text-lg">₹${exp.amount.toFixed(2)}</p>
-                            <button onclick="deleteExpense(${exp.id})" class="text-red-500 hover:text-red-700 transition-colors text-xl">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function getFilteredExpenses() {
-            const now = new Date();
-            return expenses.filter(exp => {
-                const expDate = new Date(exp.date);
-                
-                if (timeFilter === 'Week') {
-                    const weekAgo = new Date(now);
-                    weekAgo.setDate(now.getDate() - 7);
-                    return expDate >= weekAgo;
-                } else if (timeFilter === 'Month') {
-                    return expDate.getMonth() === now.getMonth() && 
-                           expDate.getFullYear() === now.getFullYear();
-                } else if (timeFilter === 'Year') {
-                    return expDate.getFullYear() === now.getFullYear();
-                }
-                return true;
-            });
-        }
-
-        function setTimeFilter(filter) {
-            timeFilter = filter;
-            
-            // Update button styles
-            document.getElementById('filterWeek').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Week' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
-            document.getElementById('filterMonth').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Month' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
-            document.getElementById('filterYear').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Year' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
-            
-            // Update description
-            const descriptions = {
-                'Week': 'Last 7 days',
-                'Month': 'Current month',
-                'Year': 'Current year'
+            let expenses = [];
+            let timeFilter = 'Month';
+            let budgets = JSON.parse(localStorage.getItem('budgets')) || {
+                Bhavish: { total: null },
+                Khushboo: { total: null }
             };
-            document.getElementById('filterDescription').textContent = 'Showing expenses for: ' + descriptions[filter];
-            
-            updateAnalytics();
-        }
 
-        function updateAnalytics() {
-            const filtered = getFilteredExpenses();
-            const total = filtered.reduce((sum, exp) => sum + exp.amount, 0);
-            
-            document.getElementById('totalExpenses').textContent = '₹' + total.toFixed(2);
-            document.getElementById('totalEntries').textContent = filtered.length;
+            const categories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Health', 'Other'];
+            const categoryColors = {
+                'Food': 'bg-orange-100 text-orange-700',
+                'Transport': 'bg-blue-100 text-blue-700',
+                'Shopping': 'bg-purple-100 text-purple-700',
+                'Bills': 'bg-red-100 text-red-700',
+                'Entertainment': 'bg-pink-100 text-pink-700',
+                'Health': 'bg-green-100 text-green-700',
+                'Other': 'bg-gray-100 text-gray-700'
+            };
 
-            // Category totals
-            const categoryTotals = {};
-            filtered.forEach(exp => {
-                categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
-            });
+            // Notification system
+            window.showNotification = function(message, type = 'success') {
+                const container = document.getElementById('notificationContainer');
+                const id = 'notif-' + Date.now();
+                
+                const colors = {
+                    success: 'bg-green-500',
+                    error: 'bg-red-500',
+                    warning: 'bg-yellow-500',
+                    info: 'bg-blue-500'
+                };
+                
+                const icons = {
+                    success: '✓',
+                    error: '✕',
+                    warning: '⚠',
+                    info: 'ℹ'
+                };
+                
+                const notif = document.createElement('div');
+                notif.id = id;
+                notif.className = `${colors[type]} text-white px-6 py-4 rounded-lg shadow-lg notification-enter flex items-center gap-3 min-w-[300px]`;
+                notif.innerHTML = `
+                    <span class="text-xl">${icons[type]}</span>
+                    <span class="flex-1">${message}</span>
+                    <button onclick="window.closeNotification('${id}')" class="text-white hover:text-gray-200">✕</button>
+                `;
+                
+                container.appendChild(notif);
+                
+                setTimeout(() => window.closeNotification(id), 5000);
+            }
 
-            const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
-            document.getElementById('topCategory').textContent = sortedCategories[0]?.[0] || 'None';
+            window.closeNotification = function(id) {
+                const notif = document.getElementById(id);
+                if (notif) {
+                    notif.classList.remove('notification-enter');
+                    notif.classList.add('notification-exit');
+                    setTimeout(() => notif.remove(), 300);
+                }
+            }
 
-            // Person totals
-            const bhavishTotal = filtered.filter(e => e.paid_by === 'Bhavish').reduce((sum, e) => sum + e.amount, 0);
-            const khushbooTotal = filtered.filter(e => e.paid_by === 'Khushboo').reduce((sum, e) => sum + e.amount, 0);
-            
-            document.getElementById('bhavishTotal').textContent = '₹' + bhavishTotal.toFixed(2);
-            document.getElementById('khushbooTotal').textContent = '₹' + khushbooTotal.toFixed(2);
+            // Budget management
+            window.toggleBudgetSettings = function() {
+                const panel = document.getElementById('budgetPanel');
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                if (panel.style.display === 'block') {
+                    window.renderBudgetInputs();
+                }
+            }
 
-            // Top categories
-            if (sortedCategories.length > 0) {
-                document.getElementById('topCategoriesCard').style.display = 'block';
-                document.getElementById('topCategoriesList').innerHTML = sortedCategories.slice(0, 3).map(([cat, amt]) => `
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="px-3 py-1 rounded-full text-xs font-medium ${categoryColors[cat]}">${cat}</span>
-                        <span class="font-semibold text-slate-700 text-sm">₹${amt.toFixed(2)}</span>
+            window.renderBudgetInputs = function() {
+                const person = document.getElementById('budgetPerson').value;
+                const container = document.getElementById('budgetInputs');
+                
+                // Set total budget value
+                document.getElementById('totalBudget').value = budgets[person].total || '';
+                
+                container.innerHTML = categories.map(cat => `
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">${cat}</label>
+                        <input 
+                            type="number" 
+                            id="budget-${cat}" 
+                            value="${budgets[person][cat] || ''}" 
+                            placeholder="No limit"
+                            class="w-full px-3 py-2 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500"
+                        >
                     </div>
                 `).join('');
-            } else {
-                document.getElementById('topCategoriesCard').style.display = 'none';
             }
-        }
+
+            window.saveBudgets = function() {
+                const person = document.getElementById('budgetPerson').value;
+                
+                // Save total budget
+                const totalValue = document.getElementById('totalBudget').value;
+                if (totalValue) {
+                    budgets[person].total = parseFloat(totalValue);
+                } else {
+                    budgets[person].total = null;
+                }
+                
+                // Save category budgets
+                categories.forEach(cat => {
+                    const value = document.getElementById(`budget-${cat}`).value;
+                    if (value) {
+                        budgets[person][cat] = parseFloat(value);
+                    } else {
+                        delete budgets[person][cat];
+                    }
+                });
+                localStorage.setItem('budgets', JSON.stringify(budgets));
+                window.showNotification('Budgets saved successfully!', 'success');
+                checkBudgetWarnings();
+                updateAnalytics();
+            }
+
+            function checkBudgetWarnings() {
+                const now = new Date();
+                const monthExpenses = expenses.filter(exp => {
+                    const expDate = new Date(exp.date);
+                    return expDate.getMonth() === now.getMonth() && 
+                           expDate.getFullYear() === now.getFullYear();
+                });
+
+                const warnings = [];
+                
+                ['Bhavish', 'Khushboo'].forEach(person => {
+                    const personExpenses = monthExpenses.filter(e => e.paid_by === person);
+                    const totalSpent = personExpenses.reduce((sum, e) => sum + e.amount, 0);
+                    
+                    // Check total budget
+                    if (budgets[person].total) {
+                        const totalLimit = budgets[person].total;
+                        const totalPercentage = (totalSpent / totalLimit) * 100;
+                        
+                        if (totalPercentage >= 100) {
+                            warnings.push({
+                                person,
+                                category: 'Total Budget',
+                                spent: totalSpent,
+                                limit: totalLimit,
+                                type: 'exceeded',
+                                isTotal: true
+                            });
+                        } else if (totalPercentage >= 80) {
+                            warnings.push({
+                                person,
+                                category: 'Total Budget',
+                                spent: totalSpent,
+                                limit: totalLimit,
+                                type: 'warning',
+                                isTotal: true
+                            });
+                        }
+                    }
+                    
+                    // Check category budgets
+                    categories.forEach(cat => {
+                        if (budgets[person][cat]) {
+                            const spent = personExpenses
+                                .filter(e => e.category === cat)
+                                .reduce((sum, e) => sum + e.amount, 0);
+                            
+                            const limit = budgets[person][cat];
+                            const percentage = (spent / limit) * 100;
+                            
+                            if (percentage >= 100) {
+                                warnings.push({
+                                    person,
+                                    category: cat,
+                                    spent,
+                                    limit,
+                                    type: 'exceeded',
+                                    isTotal: false
+                                });
+                            } else if (percentage >= 80) {
+                                warnings.push({
+                                    person,
+                                    category: cat,
+                                    spent,
+                                    limit,
+                                    type: 'warning',
+                                    isTotal: false
+                                });
+                            }
+                        }
+                    });
+                });
+
+                const container = document.getElementById('budgetWarnings');
+                if (warnings.length > 0) {
+                    container.innerHTML = warnings.map(w => `
+                        <div class="bg-${w.type === 'exceeded' ? 'red' : 'yellow'}-50 border border-${w.type === 'exceeded' ? 'red' : 'yellow'}-200 rounded-lg p-4 mb-3">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-xl">${w.type === 'exceeded' ? '🚨' : '⚠️'}</span>
+                                <span class="font-semibold text-${w.type === 'exceeded' ? 'red' : 'yellow'}-800">
+                                    ${w.person} - ${w.category}
+                                </span>
+                            </div>
+                            <p class="text-sm text-slate-700">
+                                Spent ₹${w.spent.toFixed(2)} of ₹${w.limit.toFixed(2)} 
+                                (${((w.spent / w.limit) * 100).toFixed(0)}%)
+                            </p>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '';
+                }
+            }
+
+            // Set today's date as default
+            document.getElementById('date').valueAsDate = new Date();
+
+            // Load expenses on page load
+            loadExpenses();
+
+            // Set up real-time subscription
+            supabase
+                .channel('expenses-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        window.showNotification('New expense added!', 'info');
+                    } else if (payload.eventType === 'DELETE') {
+                        window.showNotification('Expense deleted', 'info');
+                    }
+                    loadExpenses();
+                })
+                .subscribe();
+
+            async function loadExpenses() {
+                try {
+                    const { data, error } = await supabase
+                        .from('expenses')
+                        .select('*')
+                        .order('date', { ascending: false });
+
+                    if (error) throw error;
+                    expenses = data || [];
+                    renderExpenses();
+                    updateAnalytics();
+                    checkBudgetWarnings();
+                } catch (error) {
+                    console.error('Error loading expenses:', error);
+                    window.showNotification('Failed to load expenses', 'error');
+                }
+            }
+
+            window.addExpense = async function() {
+                const date = document.getElementById('date').value;
+                const place = document.getElementById('place').value;
+                const amount = document.getElementById('amount').value;
+                const category = document.getElementById('category').value;
+                const paidBy = document.getElementById('paidBy').value;
+
+                if (!place || !amount) {
+                    window.showNotification('Please fill in all required fields', 'warning');
+                    return;
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('expenses')
+                        .insert([{
+                            date,
+                            place,
+                            amount: parseFloat(amount),
+                            category,
+                            paid_by: paidBy
+                        }]);
+
+                    if (error) throw error;
+
+                    window.showNotification('Expense added successfully!', 'success');
+                    
+                    // Check if this expense causes budget to exceed
+                    const now = new Date();
+                    if (new Date(date).getMonth() === now.getMonth() && new Date(date).getFullYear() === now.getFullYear()) {
+                        const monthExpenses = expenses.filter(exp => {
+                            const expDate = new Date(exp.date);
+                            return expDate.getMonth() === now.getMonth() && 
+                                   expDate.getFullYear() === now.getFullYear() &&
+                                   exp.paid_by === paidBy;
+                        });
+                        
+                        const totalSpent = monthExpenses.reduce((sum, e) => sum + e.amount, 0) + parseFloat(amount);
+                        const categorySpent = monthExpenses.filter(e => e.category === category).reduce((sum, e) => sum + e.amount, 0) + parseFloat(amount);
+                        
+                        // Check category budget
+                        if (budgets[paidBy][category]) {
+                            const categoryLimit = budgets[paidBy][category];
+                            if (categorySpent > categoryLimit) {
+                                window.showNotification(`⚠️ ${category} budget exceeded! ₹${categorySpent.toFixed(2)} / ₹${categoryLimit.toFixed(2)}`, 'warning');
+                            }
+                        }
+                        
+                        // Check total budget
+                        if (budgets[paidBy].total) {
+                            const totalLimit = budgets[paidBy].total;
+                            if (totalSpent > totalLimit) {
+                                window.showNotification(`🚨 Total budget exceeded! ₹${totalSpent.toFixed(2)} / ₹${totalLimit.toFixed(2)}`, 'error');
+                            }
+                        }
+                    }
+
+                    // Clear form
+                    document.getElementById('place').value = '';
+                    document.getElementById('amount').value = '';
+                    document.getElementById('date').valueAsDate = new Date();
+                } catch (error) {
+                    console.error('Error adding expense:', error);
+                    window.showNotification('Failed to add expense: ' + error.message, 'error');
+                }
+            }
+
+            window.deleteExpense = async function(id) {
+                if (!confirm('Delete this expense?')) return;
+
+                try {
+                    const { error } = await supabase
+                        .from('expenses')
+                        .delete()
+                        .eq('id', id);
+
+                    if (error) throw error;
+                    window.showNotification('Expense deleted', 'success');
+                } catch (error) {
+                    console.error('Error deleting expense:', error);
+                    window.showNotification('Failed to delete expense', 'error');
+                }
+            }
+
+            function renderExpenses() {
+                const list = document.getElementById('expensesList');
+                
+                if (expenses.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-8 text-slate-400">
+                            <div class="text-4xl mb-3">💸</div>
+                            <p class="text-sm">No expenses yet. Start tracking!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                list.innerHTML = expenses.map(exp => `
+                    <div class="p-4 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors mb-3">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-800 mb-1">${exp.place}</p>
+                                <div class="flex flex-wrap gap-2 mb-2">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium ${categoryColors[exp.category]}">${exp.category}</span>
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium ${exp.paid_by === 'Bhavish' ? 'bg-indigo-100 text-indigo-700' : 'bg-rose-100 text-rose-700'}">${exp.paid_by}</span>
+                                </div>
+                                <p class="text-xs text-slate-500">${exp.date}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <p class="font-bold text-slate-800 text-lg">₹${exp.amount.toFixed(2)}</p>
+                                <button onclick="window.deleteExpense(${exp.id})" class="text-red-500 hover:text-red-700 transition-colors text-xl">🗑️</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function getFilteredExpenses() {
+                const now = new Date();
+                return expenses.filter(exp => {
+                    const expDate = new Date(exp.date);
+                    
+                    if (timeFilter === 'Week') {
+                        const weekAgo = new Date(now);
+                        weekAgo.setDate(now.getDate() - 7);
+                        return expDate >= weekAgo;
+                    } else if (timeFilter === 'Month') {
+                        return expDate.getMonth() === now.getMonth() && 
+                               expDate.getFullYear() === now.getFullYear();
+                    } else if (timeFilter === 'Year') {
+                        return expDate.getFullYear() === now.getFullYear();
+                    }
+                    return true;
+                });
+            }
+
+            window.setTimeFilter = function(filter) {
+                timeFilter = filter;
+                
+                // Update button styles
+                document.getElementById('filterWeek').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Week' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
+                document.getElementById('filterMonth').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Month' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
+                document.getElementById('filterYear').className = 'px-3 py-1 rounded-md text-xs font-medium transition-colors ' + (filter === 'Year' ? 'bg-blue-500 text-white' : 'text-slate-600 hover:text-slate-800');
+                
+                // Update description
+                const descriptions = {
+                    'Week': 'Last 7 days',
+                    'Month': 'Current month',
+                    'Year': 'Current year'
+                };
+                document.getElementById('filterDescription').textContent = 'Showing expenses for: ' + descriptions[filter];
+                
+                updateAnalytics();
+            }
+
+            function updateAnalytics() {
+                const filtered = getFilteredExpenses();
+                const total = filtered.reduce((sum, exp) => sum + exp.amount, 0);
+                
+                document.getElementById('totalExpenses').textContent = '₹' + total.toFixed(2);
+                document.getElementById('totalEntries').textContent = filtered.length;
+
+                // Category totals
+                const categoryTotals = {};
+                filtered.forEach(exp => {
+                    categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
+                });
+
+                const sortedCategories = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+                document.getElementById('topCategory').textContent = sortedCategories[0]?.[0] || 'None';
+
+                // Person totals
+                const bhavishTotal = filtered.filter(e => e.paid_by === 'Bhavish').reduce((sum, e) => sum + e.amount, 0);
+                const khushbooTotal = filtered.filter(e => e.paid_by === 'Khushboo').reduce((sum, e) => sum + e.amount, 0);
+                
+                document.getElementById('bhavishTotal').textContent = '₹' + bhavishTotal.toFixed(2);
+                document.getElementById('khushbooTotal').textContent = '₹' + khushbooTotal.toFixed(2);
+
+                // Top categories
+                if (sortedCategories.length > 0) {
+                    document.getElementById('topCategoriesCard').style.display = 'block';
+                    document.getElementById('topCategoriesList').innerHTML = sortedCategories.slice(0, 3).map(([cat, amt]) => `
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${categoryColors[cat]}">${cat}</span>
+                            <span class="font-semibold text-slate-700 text-sm">₹${amt.toFixed(2)}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('topCategoriesCard').style.display = 'none';
+                }
+                
+                // Update category budget status
+                updateCategoryBudgetStatus();
+            }
+            
+            function updateCategoryBudgetStatus() {
+                const now = new Date();
+                const monthExpenses = expenses.filter(exp => {
+                    const expDate = new Date(exp.date);
+                    return expDate.getMonth() === now.getMonth() && 
+                           expDate.getFullYear() === now.getFullYear();
+                });
+                
+                const budgetStatuses = [];
+                
+                ['Bhavish', 'Khushboo'].forEach(person => {
+                    const personExpenses = monthExpenses.filter(e => e.paid_by === person);
+                    
+                    categories.forEach(cat => {
+                        if (budgets[person][cat]) {
+                            const spent = personExpenses
+                                .filter(e => e.category === cat)
+                                .reduce((sum, e) => sum + e.amount, 0);
+                            
+                            const limit = budgets[person][cat];
+                            const remaining = limit - spent;
+                            const percentage = (spent / limit) * 100;
+                            
+                            budgetStatuses.push({
+                                person,
+                                category: cat,
+                                spent,
+                                limit,
+                                remaining,
+                                percentage
+                            });
+                        }
+                    });
+                });
+                
+                const container = document.getElementById('categoryBudgetList');
+                const card = document.getElementById('categoryBudgetCard');
+                
+                if (budgetStatuses.length > 0) {
+                    card.style.display = 'block';
+                    container.innerHTML = budgetStatuses.map(status => {
+                        const isOver = status.remaining < 0;
+                        const isWarning = status.percentage >= 80 && !isOver;
+                        const bgColor = isOver ? 'bg-red-50' : isWarning ? 'bg-yellow-50' : 'bg-green-50';
+                        const borderColor = isOver ? 'border-red-200' : isWarning ? 'border-yellow-200' : 'border-green-200';
+                        const textColor = isOver ? 'text-red-700' : isWarning ? 'text-yellow-700' : 'text-green-700';
+                        
+                        return `
+                            <div class="${bgColor} border ${borderColor} rounded-lg p-3 mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${status.person === 'Bhavish' ? 'bg-indigo-100 text-indigo-700' : 'bg-rose-100 text-rose-700'}">
+                                            ${status.person}
+                                        </span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${categoryColors[status.category]}">
+                                            ${status.category}
+                                        </span>
+                                    </div>
+                                    <span class="text-xs font-semibold ${textColor}">
+                                        ${status.percentage.toFixed(0)}%
+                                    </span>
+                                </div>
+                                <div class="text-sm">
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-slate-600">Spent:</span>
+                                        <span class="font-semibold">₹${status.spent.toFixed(2)}</span>
+                                    </div>
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-slate-600">Limit:</span>
+                                        <span class="font-semibold">₹${status.limit.toFixed(2)}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-slate-600">${isOver ? 'Over by:' : 'Remaining:'}</span>
+                                        <span class="font-bold ${textColor}">₹${Math.abs(status.remaining).toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div class="${isOver ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : 'bg-green-500'} h-2 rounded-full" style="width: ${Math.min(status.percentage, 100)}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    card.style.display = 'none';
+                }
+            }
+        })();
     </script>
 </body>
 </html>
