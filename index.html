@@ -215,7 +215,14 @@
 
         <!-- Category Budget Status -->
         <div class="bg-white rounded-xl shadow-md p-5 border border-slate-200 mb-6" id="categoryBudgetCard" style="display: none;">
-            <h3 class="text-base font-bold text-slate-800 mb-3">📊 Budget Status by Category</h3>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-base font-bold text-slate-800">📊 Budget Status by Category</h3>
+                <select id="budgetStatusFilter" onchange="window.updateCategoryBudgetStatus()" class="px-3 py-1 text-xs rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500">
+                    <option value="All">All</option>
+                    <option value="Bhavish">Bhavish</option>
+                    <option value="Khushboo">Khushboo</option>
+                </select>
+            </div>
             <div id="categoryBudgetList" class="grid grid-cols-2 gap-3"></div>
         </div>
     </div>
